@@ -1,5 +1,6 @@
 #include<iostream>
 #include<cstdlib>
+#include<windows.h>
 using namespace std;
 typedef int Rank;
 #define DEFAULT_CAPACITY 1000  //宏定义后面不允许加分号
@@ -13,7 +14,8 @@ protected:
 	void expand();
 
 public:
-	Vector(int c, int s = 0, T v = 0);
+	Vector(int c,bool isrev, int s = 0, T v = 0);
+	Vector(Vector<T> const& v);
 	~Vector() { delete[] _elem; }
 	T& operator[] (Rank r)const;
 	Rank insert(Rank r, T const& e);
@@ -38,12 +40,35 @@ public:
 		return --lo;
 	}
 	Rank binSearch_left(T const& e, Rank lo, Rank hi);
+	void merge(Rank lo, Rank mi, Rank hi);
+	void mergesort(Rank lo, Rank hi);
 };
-template<typename T> Vector<T>::Vector(int c, int s, T v)
+
+template<typename T> Vector<T>::Vector(int c, bool isrev ,int s, T v)
 {
 	//c = DEFAULT_CAPACITY;
-	_elem = new T[_capacity = c];
-	for (_size = 0; _size < c; _elem[_size++] = (rand() % 10 + 1));
+	if (!isrev)
+	{
+		_elem = new T[_capacity = c];
+		for (_size = 0; _size < c; _elem[_size++] = (rand() % 200000 + 1));
+	}
+	else
+	{
+		_elem = new T[_capacity = c];
+		for (int i = 100000; i > 0; i--)
+		{
+			_elem[_size++] = i;
+		}
+	}
+}
+template<typename T> Vector<T>::Vector(Vector<T> const& v)
+{
+	int size=v.size();
+	_elem = new T[size];
+	for (_size = 0; _size < size; _size++)   //这里_size前面不可以再加int了 否则会出现局部变量使得全局变量不可见
+	{
+		_elem[_size] = v[_size];
+	}
 }
 template<typename T>Rank Vector<T>::find(T const& e, Rank lo, Rank hi)const
 {
@@ -110,7 +135,20 @@ template<typename T>Rank Vector<T>::insert(Rank r, T const& e)
 }
 template<typename T>void Vector<T>::print()
 {
-	for (int i = 0; i < _size; i++)
+	cout << "===============================================[0,19]==================================================" << endl;
+	for (int i = 0; i <= 19; i++)
+	{
+		cout << _elem[i] << " ";
+	}
+	cout << endl<<endl;
+	cout << "===========================================[50000,50019]===============================================" << endl;
+	for (int i = 50000; i <=50019; i++)
+	{
+		cout << _elem[i] << " ";
+	}
+	cout << endl<<endl;
+	cout << "===========================================[99980,99999]===============================================" << endl;
+	for (int i = 99980; i <= 99999; i++)
 	{
 		cout << _elem[i] << " ";
 	}
@@ -207,29 +245,95 @@ template<typename T> Rank Vector<T>::binSearch_left(T const& e, Rank lo, Rank hi
 		return -1;
 	}
 }
+template<typename T>void Vector<T>::merge(Rank lo, Rank mi, Rank hi)
+{
+	T* A = _elem + lo;
+	int lb = mi - lo; T* B = new T[lb];
+	for (int i = 0; i < lb;i++)
+	{
+		B[i] = A[i];
+	}
+	int lc = hi - mi;
+	T* C = _elem + mi;
+	for (int i = 0, j = 0, k = 0; (j < lb) || (k < lc);)
+	{
+		if ((j < lb) && (!(k < lc) || (B[j] <= C[k])))
+		{
+			A[i++] = B[j++];
+		}
+		if ((k < lc) && (!(j < lb) || (C[k] < B[j])))
+		{
+			A[i++] = C[k++];
+		}
+		
+	}
+	delete[]B;//应该在for循环的外面清空内存
+}
+template<typename T>void Vector<T>::mergesort(Rank lo, Rank hi)
+{
+	if (hi - lo < 2) return;
+	int mi = (lo + hi) >> 1;   //箭头朝向那一边就是哪个方向的移
+	mergesort(lo, mi); mergesort(mi, hi);
+	merge(lo, mi, hi);
+}
 int main()
 {
 	int rank;
 	int n1 = 0;
 	int n2 = 0;
 	int new_ele = 3;
-	Vector<int> myvector(10);
-	myvector.bubblesort();      //将有序向量变成无序向量
-	cout << "初始化的有序向量为：" << endl;
-	myvector.print();
-	cout << "有序插入一个新元素后的有序向量为：" << endl;
-	n1 = myvector.binSearch(new_ele, 0, 10);   //刚开始测这段代码的时候没有进行排序，所以无法得到正确结果，二分查找适用于有序向量
-	myvector.insert(n1 + 1, new_ele);        //利用二分查找的正确结果插入元素
-	myvector.print();
-	cout << "查找某一个元素并统计其出现的次数:" << endl;
-	n1 = myvector.binSearch_left(5, 0, myvector.size());
-	n2 = myvector.binSearch(5, 0, myvector.size());
-	cout << "第一次出现的位置：" << n1 << endl;
-	cout << "第二次出现的位置：" << n2 << endl;
-	cout << "统计其出现的次数:" << n2 - n1 + 1 << endl;
-	cout << "输出删除这个元素后的向量:" << endl;
-	myvector.remove(n1, n2 + 1);
-	myvector.print();
+	Vector<int> myvectorA(100000,false);
+	Vector<int> myvectorA_copy = myvectorA;
+	Vector<int> myvectorB(100000,true);
+	Vector<int> myvectorB_copy = myvectorB;
+	LARGE_INTEGER nFreqA;             //时钟频率
+	LARGE_INTEGER nBeginTimeA;   //起始时间的频率计数
+	LARGE_INTEGER nEndTimeA;   //终止时间的频率计数
+	double time;         //时间
+	QueryPerformanceFrequency(&nFreqA);          //获得系统时钟频率
+	QueryPerformanceCounter(&nBeginTimeA);    //获得起始时间的计数
+	myvectorA.mergesort(0, 100000);          //归并
+	QueryPerformanceCounter(&nEndTimeA);       //获得终止时间的计数
+	time = (double)(nEndTimeA.QuadPart - nBeginTimeA.QuadPart) / (double)nFreqA.QuadPart;                           //计算获得高精度时间
+	cout <<"本次归并排序消耗的时间是"<< time<<endl;
+	myvectorA.print();
+	cout << endl;
+
+
+	LARGE_INTEGER nFreqA_copy;             //时钟频率
+	LARGE_INTEGER nBeginTimeA_copy;   //起始时间的频率计数
+	LARGE_INTEGER nEndTimeA_copy;   //终止时间的频率计数
+	QueryPerformanceFrequency(&nFreqA_copy);          //获得系统时钟频率
+	QueryPerformanceCounter(&nBeginTimeA_copy);    //获得起始时间的计数
+	myvectorA_copy.bubblesort();
+	QueryPerformanceCounter(&nEndTimeA_copy);       //获得终止时间的计数
+	time = (double)(nEndTimeA_copy.QuadPart - nBeginTimeA_copy.QuadPart) / (double)nFreqA_copy.QuadPart;                           //计算获得高精度时间
+	cout << "本次冒泡排序消耗的时间是" << time << endl;
+	myvectorA_copy.print();
+
+	LARGE_INTEGER nFreqB;             //时钟频率
+	LARGE_INTEGER nBeginTimeB;   //起始时间的频率计数
+	LARGE_INTEGER nEndTimeB;   //终止时间的频率计数
+	QueryPerformanceFrequency(&nFreqB);          //获得系统时钟频率
+	QueryPerformanceCounter(&nBeginTimeB);    //获得起始时间的计数
+	myvectorB.mergesort(0, 100000);          //归并
+	QueryPerformanceCounter(&nEndTimeB);       //获得终止时间的计数
+	time = (double)(nEndTimeB.QuadPart - nBeginTimeB.QuadPart) / (double)nFreqB.QuadPart;                           //计算获得高精度时间
+	cout << "本次逆序元素归并排序消耗的时间是" << time << endl;
+	myvectorB.print();
+	cout << endl;
+
+	LARGE_INTEGER nFreqB_copy;             //时钟频率
+	LARGE_INTEGER nBeginTimeB_copy;   //起始时间的频率计数
+	LARGE_INTEGER nEndTimeB_copy;   //终止时间的频率计数
+	QueryPerformanceFrequency(&nFreqB_copy);          //获得系统时钟频率
+	QueryPerformanceCounter(&nBeginTimeB_copy);    //获得起始时间的计数
+	myvectorB_copy.bubblesort();          //逆序冒泡
+	QueryPerformanceCounter(&nEndTimeB_copy);       //获得终止时间的计数
+	time = (double)(nEndTimeB_copy.QuadPart - nBeginTimeB_copy.QuadPart) / (double)nFreqB_copy.QuadPart;                           //计算获得高精度时间
+	cout << "本次逆序元素冒泡排序消耗的时间是" << time << endl;
+	myvectorB_copy.print();
+	cout << endl;
 
 
 
